@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 function App() {
@@ -6,6 +6,10 @@ function App() {
   const [output, setOutput] = useState("");
   const [mode, setMode] = useState("translate");
   const [isLoading, setIsLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0); // 0-100%
+  const utteranceRef = useRef(null); // Store SpeechSynthesisUtterance
+  const startTimeRef = useRef(null); // Track start time for progress
 
   // Load cached output from localStorage on mount
   useEffect(() => {
@@ -19,6 +23,8 @@ function App() {
 
   const stopSpeaking = () => {
     window.speechSynthesis.cancel(); // Cancel any ongoing speech
+    setIsPlaying(false);
+    setProgress(0);
   };
 
   const processText = async () => {
@@ -28,7 +34,6 @@ function App() {
     
     if (cachedOutput) {
       setOutput(cachedOutput);
-      speak(cachedOutput);
       return;
     }
 
@@ -42,7 +47,6 @@ function App() {
       const result = response.data.result;
       setOutput(result);
       localStorage.setItem(cacheKey, result);
-      speak(result);
     } catch (error) {
       console.error("Error:", error);
       setOutput("Processing failed.");
@@ -51,16 +55,81 @@ function App() {
     }
   };
 
-  const speak = (text) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "it";
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+  const togglePlayPause = () => {
+    if (!output) return;
+
+    if (isPlaying) {
+      window.speechSynthesis.pause();
+      setIsPlaying(false);
+    } else {
+      if (!utteranceRef.current) {
+        // New utterance if none exists
+        const utterance = new SpeechSynthesisUtterance(output);
+        utterance.lang = "it";
+        utterance.rate = 0.9;
+        utterance.onboundary = (event) => {
+          // Update progress based on char position (approximation)
+          const totalChars = output.length;
+          const currentChar = event.charIndex || 0;
+          const newProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
+          setProgress(newProgress);
+        };
+        utterance.onend = () => {
+          setIsPlaying(false);
+          setProgress(100);
+          startTimeRef.current = null;
+        };
+        utteranceRef.current = utterance;
+      }
+
+      window.speechSynthesis.resume(); // Resume if paused
+      if (progress === 0 || progress === 100) {
+        window.speechSynthesis.cancel(); // Reset if at start/end
+        window.speechSynthesis.speak(utteranceRef.current);
+        startTimeRef.current = Date.now(); // Track start time
+      }
+      setIsPlaying(true);
+    }
+  };
+
+  const handleProgressChange = (e) => {
+    if (!utteranceRef.current || !output) return;
+
+    const newProgress = Number(e.target.value);
+    setProgress(newProgress);
+
+    // Stop current speech
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
+
+    // Restart at new position (approximate with char index)
+    const totalChars = output.length;
+    const charIndex = Math.floor((newProgress / 100) * totalChars);
+    const newUtterance = new SpeechSynthesisUtterance(output.slice(charIndex));
+    newUtterance.lang = "it";
+    newUtterance.rate = 0.9;
+    newUtterance.onboundary = (event) => {
+      const currentChar = charIndex + (event.charIndex || 0);
+      const updatedProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
+      setProgress(updatedProgress);
+    };
+    newUtterance.onend = () => {
+      setIsPlaying(false);
+      setProgress(100);
+      startTimeRef.current = null;
+    };
+    utteranceRef.current = newUtterance;
+
+    // Auto-play from new position
+    window.speechSynthesis.speak(newUtterance);
+    setIsPlaying(true);
+    startTimeRef.current = Date.now();
   };
 
   const handleModeChange = (newMode) => {
-    stopSpeaking(); // Cancel speech on mode switch
+    stopSpeaking();
     setMode(newMode);
+    utteranceRef.current = null; // Reset utterance on mode change
   };
 
   return (
@@ -76,7 +145,7 @@ function App() {
       <div className="flex space-x-4 mb-4">
         <button
           className={`px-4 py-2 rounded ${
-            mode === "translate" ? "bg-blue-500 text-white" : "bg-gray-300"
+            mode === "translate" ? "bg-blue-500" : "bg-gray-300"
           }`}
           onClick={() => handleModeChange("translate")}
           disabled={isLoading} // Disable while loading
@@ -85,7 +154,7 @@ function App() {
         </button>
         <button
           className={`px-4 py-2 rounded ${
-            mode === "summarize" ? "bg-blue-500 text-white" : "bg-gray-300"
+            mode === "summarize" ? "bg-blue-500" : "bg-gray-300"
           }`}
           onClick={() => handleModeChange("summarize")}
           disabled={isLoading} // Disable while loading
@@ -102,9 +171,33 @@ function App() {
       >
         {isLoading ? "Loading..." : "Process & Read"}
       </button>
-      <div className="mt-4 p-2 bg-white border rounded">
-        <p>{output || "Output will appear here..."}</p>
-      </div>
+      {output && (
+        <div className="mt-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <button
+              className={`px-4 py-2 rounded text-white ${
+                isPlaying ? "bg-red-500" : "bg-blue-500"
+              }`}
+              onClick={togglePlayPause}
+              disabled={!output}
+            >
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={progress}
+              onChange={handleProgressChange}
+              className="w-full custom-range"
+              disabled={!output}
+            />
+          </div>
+          <div className="p-2 bg-white border rounded">
+            <p>{output}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

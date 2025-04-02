@@ -29,7 +29,7 @@ function App() {
     if (cachedOutput) {
       setOutput(cachedOutput);
       speak(cachedOutput);
-      return; // Skip request if cached
+      return;
     }
 
     setIsLoading(true);
@@ -41,7 +41,7 @@ function App() {
       );
       const result = response.data.result;
       setOutput(result);
-      localStorage.setItem(cacheKey, result); // Cache the result
+      localStorage.setItem(cacheKey, result);
       speak(result);
     } catch (error) {
       console.error("Error:", error);

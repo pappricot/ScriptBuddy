@@ -9,8 +9,8 @@ CORS(app)
 print("Loading models...")
 trans_model = M2M100ForConditionalGeneration.from_pretrained("./models/m2m100_418M")
 trans_tokenizer = M2M100Tokenizer.from_pretrained("./models/m2m100_418M")
-summ_model = T5ForConditionalGeneration.from_pretrained("./models/t5-small")
-summ_tokenizer = T5Tokenizer.from_pretrained("./models/t5-small")
+summ_model = T5ForConditionalGeneration.from_pretrained("./models/mt5-small")
+summ_tokenizer = T5Tokenizer.from_pretrained("./models/mt5-small")
 print("Models loaded!")
 
 @app.route("/process", methods=["POST"])
@@ -22,6 +22,7 @@ def process_text():
     print(f"Requested mode: {mode}, lang: {lang}")
 
     if mode == "translate":
+        # English to Italian
         trans_tokenizer.src_lang = "en"
         trans_tokenizer.tgt_lang = lang
         inputs = trans_tokenizer(text, return_tensors="pt", padding=True)
@@ -29,17 +30,10 @@ def process_text():
         outputs = trans_model.generate(**inputs, forced_bos_token_id=lang_id)
         result = trans_tokenizer.decode(outputs[0], skip_special_tokens=True)
     else:  # summarize
-        # Step 1: Summarize in English
-        inputs = summ_tokenizer(f"summarize: {text}", return_tensors="pt", max_length=512, truncation=True)
+       # Summarize Italian directly (input must be Italian)
+        inputs = summ_tokenizer(f"riassumi: {text}", return_tensors="pt", max_length=512, truncation=True)
         outputs = summ_model.generate(**inputs, max_length=150)
-        english_summary = summ_tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Step 2: Translate to Italian
-        trans_tokenizer.src_lang = "en"
-        trans_tokenizer.tgt_lang = lang
-        inputs = trans_tokenizer(english_summary, return_tensors="pt", padding=True)
-        lang_id = trans_tokenizer.get_lang_id(lang)
-        outputs = trans_model.generate(**inputs, forced_bos_token_id=lang_id)
-        result = trans_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        result = summ_tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     return jsonify({"result": result})
 

@@ -1,0 +1,140 @@
+body {
+  margin: 10;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+   background-color: rgb(162, 205, 180);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+h1 {
+  text-align: center;
+  color:dimgrey;
+  text-decoration: underline;
+  text-decoration-color: dimgrey;
+}
+
+textarea {
+  padding: 10px;
+  margin-left: -10px;
+  margin-top: 40px;
+}
+button {
+  padding: 10px;
+  margin: 10px;
+}
+
+.buttonWrapper {
+  display: flex;;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.max-w-md {
+  max-width: 28rem;
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.bg-gray-100 {
+  background-color:thistle;
+  margin: 1rem;
+  padding: 50px
+}
+
+.min-h-screen {
+  min-height: 100vh;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+}
+
+.font-bold {
+  font-weight: bold;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.p-2 {
+  padding: 0.5rem;
+}
+
+.border {
+  border: 1px solid #e2e8f0;
+}
+
+.rounded {
+  border-radius: 0.25rem;
+}
+
+.flex {
+  display: flex;
+}
+
+.space-x-4 > :not(:last-child) {
+  margin-right: 1rem;
+}
+
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.text-white {
+  /* color: white; */
+}
+
+.bg-blue-500 {
+  background-color:lightpink;
+  border-color: lightpink;
+}
+
+.bg-gray-300 {
+  background-color:papayawhip;
+  border-color: papayawhip;
+}
+
+.bg-green-300 {
+  background-color: #9ae6b4;
+}
+
+.bg-green-500 {
+  background-color: rgb(162, 205, 180);
+  border-color: rgb(162, 205, 180);
+  display: flex;
+  justify-self: center;
+  align-items: center;
+  justify-content: center;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}

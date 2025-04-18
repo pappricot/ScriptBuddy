@@ -15,7 +15,7 @@ Python 3.11+ (Install Python)
 ### Installation
 
 Clone this repository to your local machine: <br />
-> git clone https://github.com/anya-p-nguyen/cipher.git <br />
+> git clone https://github.com/pappricot/cipher.git <br />
 > cd cipher
 
 

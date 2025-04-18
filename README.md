@@ -1,8 +1,8 @@
 
-# Cipher - Offline Text Translation & Summarization Tool
+# 🕵🏻‍♀️ Cipher - Offline Text Translation & Summarization Tool
 
-Helper tool for translating and summarizing texts OFFLINE! <br />
-Cipher is a privacy-first, offline tool to translate and summarize text locally on any device. <br />
+🛜+🚫 Helper tool for translating and summarizing texts OFFLINE! <br />
+🔐+💯+👌 Cipher is a privacy-first, offline tool to translate and summarize text locally on any device. <br />
 
 ## Getting Started
 Follow these steps to run Cipher on your device.

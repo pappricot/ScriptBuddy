@@ -40,7 +40,7 @@ function App() {
     setIsLoading(true);
     try {
       const response = await axios.post(
-        "http://192.168.1.72:5000/process",
+        "http://localhost:5000/process",
         { text: script, mode, lang: "it" },
         { headers: { "Content-Type": "application/json" } }
       );

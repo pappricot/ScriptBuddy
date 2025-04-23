@@ -1,6 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer, T5ForConditionalGeneration, T5Tokenizer
+import nltk
+nltk.download('punkt')  # Download the sentence tokenizer
+nltk.download('punkt_tab')  # Tabular data for Punkt tokenizer
+from nltk.tokenize import sent_tokenize
 
 app = Flask(__name__)
 CORS(app)
@@ -23,13 +27,18 @@ def process_text():
         print(f"Requested mode: {mode}, lang: {lang}")
 
         if mode == "translate":
-            # English to Italian
-            trans_tokenizer.src_lang = "en"
-            trans_tokenizer.tgt_lang = lang
-            inputs = trans_tokenizer(text, return_tensors="pt", padding=True)
-            lang_id = trans_tokenizer.get_lang_id(lang)
-            outputs = trans_model.generate(**inputs, forced_bos_token_id=lang_id)
-            result = trans_tokenizer.decode(outputs[0], skip_special_tokens=True)
+         # Split the text into sentences
+            sentences = sent_tokenize(text)
+            translated_sentences = []
+            for sentence in sentences:
+                trans_tokenizer.src_lang = "en"
+                trans_tokenizer.tgt_lang = lang
+                inputs = trans_tokenizer(sentence, return_tensors="pt", padding=True, truncation=True, max_length=512)
+                lang_id = trans_tokenizer.get_lang_id(lang)
+                outputs = trans_model.generate(**inputs, forced_bos_token_id=lang_id)
+                translated = trans_tokenizer.decode(outputs[0], skip_special_tokens=True)
+                translated_sentences.append(translated)
+            result = " ".join(translated_sentences)
         else:  # summarize
             # Step 1: Summarize in English directly (input assumed English)
             inputs = summ_tokenizer(f"summarize: {text}", return_tensors="pt", max_length=512, truncation=True)

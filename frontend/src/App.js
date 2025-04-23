@@ -9,9 +9,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0-100%
-  const utteranceRef = useRef(null); // Store SpeechSynthesisUtterance
   const startTimeRef = useRef(null); // Track start time for progress
   const canvasRef = useRef(null); // Reference to the canvas element
+  const utteranceRef = useRef(null); // Reference to the current utterance
 
   // Load cached output from localStorage on mount
   useEffect(() => {
@@ -35,6 +35,7 @@ function App() {
     window.speechSynthesis.cancel(); // Cancel any ongoing speech
     setIsPlaying(false);
     setProgress(0);
+    utteranceRef.current = null;
   };
 
   const processText = async () => {
@@ -73,66 +74,83 @@ function App() {
       window.speechSynthesis.pause();
       setIsPlaying(false);
     } else {
-      if (!utteranceRef.current) {
-        // New utterance if none exists
+      if (progress === 0 || progress === 100) {
+        // Start fresh if at the beginning or end
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(output);
         utterance.lang = "it";
         utterance.rate = 0.9;
+
+        // Update progress based on character position
         utterance.onboundary = (event) => {
-          // Update progress based on char position (approximation)
           const totalChars = output.length;
           const currentChar = event.charIndex || 0;
           const newProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
           setProgress(newProgress);
         };
+
         utterance.onend = () => {
           setIsPlaying(false);
           setProgress(100);
-          startTimeRef.current = null;
         };
-        utteranceRef.current = utterance;
-      }
 
-      window.speechSynthesis.resume(); // Resume if paused
-      if (progress === 0 || progress === 100) {
-        window.speechSynthesis.cancel(); // Reset if at start/end
-        window.speechSynthesis.speak(utteranceRef.current);
-        startTimeRef.current = Date.now(); // Track start time
+        utterance.onerror = (event) => {
+          console.error("SpeechSynthesisUtterance error:", event.error);
+          setIsPlaying(false);
+          setProgress(0);
+        };
+
+        utteranceRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+        startTimeRef.current = Date.now();
+      } else {
+        window.speechSynthesis.resume();
       }
       setIsPlaying(true);
     }
   };
 
   const handleProgressChange = (e) => {
-    if (!utteranceRef.current || !output) return;
+    if (!output) return;
 
     const newProgress = Number(e.target.value);
     setProgress(newProgress);
 
-    // Stop current speech
+    // Stop current speech and restart from the new position
     window.speechSynthesis.cancel();
     setIsPlaying(false);
 
-    // Restart at new position (approximate with char index)
-    const totalChars = output.length;
-    const charIndex = Math.floor((newProgress / 100) * totalChars);
-    const newUtterance = new SpeechSynthesisUtterance(output.slice(charIndex));
-    newUtterance.lang = "it";
-    newUtterance.rate = 0.9;
-    newUtterance.onboundary = (event) => {
-      const currentChar = charIndex + (event.charIndex || 0);
-      const updatedProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
-      setProgress(updatedProgress);
+    const utterance = new SpeechSynthesisUtterance(output);
+    utterance.lang = "it";
+    utterance.rate = 0.9;
+
+    // Update progress based on character position
+    utterance.onboundary = (event) => {
+      const totalChars = output.length;
+      const currentChar = event.charIndex || 0;
+      const newProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
+      setProgress(newProgress);
     };
-    newUtterance.onend = () => {
+
+    utterance.onend = () => {
       setIsPlaying(false);
       setProgress(100);
-      startTimeRef.current = null;
     };
-    utteranceRef.current = newUtterance;
 
-    // Auto-play from new position
-    window.speechSynthesis.speak(newUtterance);
+    utterance.onerror = (event) => {
+      console.error("SpeechSynthesisUtterance error:", event.error);
+      setIsPlaying(false);
+      setProgress(0);
+    };
+
+    utteranceRef.current = utterance;
+
+    // Estimate the character index to start from based on progress
+    const charIndex = Math.floor((newProgress / 100) * output.length);
+    const partialText = output.substring(charIndex);
+    utterance.text = partialText;
+
+    window.speechSynthesis.speak(utterance);
     setIsPlaying(true);
     startTimeRef.current = Date.now();
   };
@@ -141,7 +159,6 @@ function App() {
     stopSpeaking();
     setMode(newMode);
     setOutput(""); // Clear output on mode change
-    utteranceRef.current = null; // Reset utterance on mode change
   };
 
   return (
@@ -212,7 +229,7 @@ function App() {
                 disabled={!output}
               />
             </div>
-            <p>{output}</p>
+            <p>{output.split("|||").join(" ")}</p>
           </div>
         )}
       </div>

@@ -50,4 +50,4 @@ def process_text():
         return jsonify({"error": f"Processing failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)  # Runs at 192.168.1.X:5000
+    app.run(host="0.0.0.0", port=5000)

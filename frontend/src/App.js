@@ -23,6 +23,7 @@ function App() {
   const startTimeRef = useRef(null); // Track start time for progress
   const canvasRef = useRef(null); // Reference to the canvas element
   const utteranceRef = useRef(null); // Reference to the current utterance
+  const audioSegmentsRef = useRef([]); // Store segments of audioText split by |||
 
   // Load cached output from localStorage on mount
   useEffect(() => {
@@ -42,12 +43,23 @@ function App() {
     }
   }, []);
 
+  // Update audio segments whenever audioText changes
+  useEffect(() => {
+    if (audioText) {
+      audioSegmentsRef.current = audioText.split("|||").filter(segment => segment.trim());
+    } else {
+      audioSegmentsRef.current = [];
+    }
+  }, [audioText]);
+
   const getCacheKey = (text, mode) => `${mode}_${text}`; // Unique key for each combo
 
-  const stopSpeaking = () => {
+  const stopSpeaking = (resetProgress = true) => {
     window.speechSynthesis.cancel(); // Cancel any ongoing speech
     setIsPlaying(false);
-    setProgress(0);
+    if (resetProgress) {
+      setProgress(0); // Only reset progress if explicitly requested
+    }
     utteranceRef.current = null;
   };
 
@@ -71,7 +83,7 @@ function App() {
       const response = await axios.post(
         "http://localhost:5000/process",
         { text: script, mode, lang: "it" },
-        { headers: { "Content-Type": "application/json" } }
+        { headers: { "Content-Type": "application/json" }, timeout: 60000 }
       );
       const data = response.data;
       setOutput(data.result);
@@ -100,86 +112,66 @@ function App() {
   };
 
   const togglePlayPause = () => {
-    if (!audioText) return;
+    if (!audioText || audioSegmentsRef.current.length === 0) return;
 
     if (isPlaying) {
       window.speechSynthesis.pause();
       setIsPlaying(false);
     } else {
-      if (progress === 0 || progress === 100) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(audioText);
-        utterance.lang = "it";
-        utterance.rate = 0.9;
+      window.speechSynthesis.cancel(); // Ensure any previous speech is stopped
+      const totalSegments = audioSegmentsRef.current.length;
+      const segmentIndex = Math.floor((progress / 100) * totalSegments);
+      const remainingSegments = audioSegmentsRef.current.slice(segmentIndex).join("|||");
 
-        utterance.onboundary = (event) => {
-          const totalChars = audioText.length;
-          const currentChar = event.charIndex || 0;
-          const newProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
-          setProgress(newProgress);
-        };
+      const utterance = new SpeechSynthesisUtterance(remainingSegments);
+      utterance.lang = "it";
+      utterance.rate = 0.9;
 
-        utterance.onend = () => {
-          setIsPlaying(false);
-          setProgress(100);
-        };
+      utterance.onboundary = (event) => {
+        const charIndex = event.charIndex || 0;
+        let currentCharCount = 0;
+        let currentSegmentIndex = 0;
 
-        utterance.onerror = (event) => {
-          console.error("SpeechSynthesisUtterance error:", event.error);
-          setIsPlaying(false);
-          setProgress(0);
-        };
+        const segmentsWithDelimiters = remainingSegments.split("|||");
+        for (let i = 0; i < segmentsWithDelimiters.length; i++) {
+          currentCharCount += segmentsWithDelimiters[i].length + 3; // Include "|||" length
+          if (charIndex <= currentCharCount) {
+            currentSegmentIndex = i;
+            break;
+          }
+        }
 
-        utteranceRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
-        startTimeRef.current = Date.now();
-      } else {
-        window.speechSynthesis.resume();
-      }
+        const globalSegmentIndex = segmentIndex + currentSegmentIndex;
+        const newProgress = totalSegments > 0 ? (globalSegmentIndex / totalSegments) * 100 : 0;
+        setProgress(newProgress);
+      };
+
+      utterance.onend = () => {
+        setIsPlaying(false);
+        setProgress(100);
+      };
+
+      utterance.onerror = (event) => {
+        console.error("SpeechSynthesisUtterance error:", event.error);
+        setIsPlaying(false);
+        setProgress(0); // Reset progress on error
+      };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+      startTimeRef.current = Date.now();
       setIsPlaying(true);
     }
   };
 
   const handleProgressChange = (e) => {
-    if (!audioText) return;
+    if (!audioText || audioSegmentsRef.current.length === 0) return;
 
     const newProgress = Number(e.target.value);
     setProgress(newProgress);
 
-    window.speechSynthesis.cancel();
-    setIsPlaying(false);
-
-    const utterance = new SpeechSynthesisUtterance(audioText);
-    utterance.lang = "it";
-    utterance.rate = 0.9;
-
-    utterance.onboundary = (event) => {
-      const totalChars = audioText.length;
-      const currentChar = event.charIndex || 0;
-      const newProgress = totalChars > 0 ? (currentChar / totalChars) * 100 : 0;
-      setProgress(newProgress);
-    };
-
-    utterance.onend = () => {
-      setIsPlaying(false);
-      setProgress(100);
-    };
-
-    utterance.onerror = (event) => {
-      console.error("SpeechSynthesisUtterance error:", event.error);
-      setIsPlaying(false);
-      setProgress(0);
-    };
-
-    utteranceRef.current = utterance;
-
-    const charIndex = Math.floor((newProgress / 100) * audioText.length);
-    const partialText = audioText.substring(charIndex);
-    utterance.text = partialText;
-
-    window.speechSynthesis.speak(utterance);
-    setIsPlaying(true);
-    startTimeRef.current = Date.now();
+    // Stop playback without resetting progress
+    stopSpeaking(false);
   };
 
   const handleModeChange = (newMode) => {
@@ -244,8 +236,12 @@ function App() {
         yPosition += 5; // Line spacing
       });
 
-      // Add extra spacing after each block
-      yPosition += 2;
+      // Add extra spacing after specific lines (e.g., "Nessuna risposta.")
+      if (item.text.toLowerCase().includes("nessuna risposta")) {
+        yPosition += 5;
+      } else {
+        yPosition += 2; // Default spacing after each block
+      }
 
       // Add a new page if necessary
       if (yPosition > 270) {
@@ -315,7 +311,7 @@ function App() {
             <div className="loader"></div>
           </div>
         )}
-        {/* {(isLoading || metrics.start_time) && (
+        {(isLoading || metrics.start_time) && (
           <div className="metrics-container mb-4 p-2 border rounded">
             <p><strong>Word Count:</strong> {metrics.word_count}</p>
             <p><strong>Token Count:</strong> {metrics.token_count}</p>
@@ -325,7 +321,7 @@ function App() {
               ? new Date(metrics.start_time.getTime() + metrics.est_seconds * 1000).toLocaleTimeString()
               : metrics.finish_time?.toLocaleTimeString()}</p>
           </div>
-        )} */}
+        )}
         {output.length > 0 && (
           <div className="output-container">
             <div className="flex play-pause-button">
